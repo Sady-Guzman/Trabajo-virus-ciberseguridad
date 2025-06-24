@@ -12,8 +12,8 @@ from google.oauth2 import service_account
 EXTENSIONES_PROHIBIDAS = ['.so', '.exe', '.dll', '.img', '.iso']
 ARCHIVOS_EXCLUIDOS = ['key.key', 'encripta.py', 'desencripta.py', 'hashes.json']
 SCOPES = ['https://www.googleapis.com/auth/drive']
-EMAIL_DESTINO = 'guzman.sadym@gmail.com'
-PARENT_FOLDER_ID = "1CJi8m_p2fjjA1HcyR8ThUZq7aJ_uCg8b"
+EMAIL_DESTINO = 'correo@gmail.com'
+PARENT_FOLDER_ID = "ID_in_URL_drive_folder"
 
 # --- Credenciales de cuenta de servicio incrustadas directamente ---
 SERVICE_ACCOUNT_FILE = {
